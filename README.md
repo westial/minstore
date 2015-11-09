@@ -1,15 +1,22 @@
 minstore
 ========
 
-This software provides an API to save and retrieve values by key. It's file
-storage based engine and supports to have multiple instances working from
-different connected nodes concurrently. The same records are saved into all
-nodes.
+This software provides an API to persist and retrieve key value pairs. 
+
+It's based on a file storage engine that populates the new records to multiple nodes with the same application installed on.
+
+
+This application is a proof of concept and is totally not recommended using as is in a production environment.
 
 Requirements
 ------------
 
 * Python 2.7+
+
+### Python packages
+
+* wsgiservice
+* unittest2 (for testing purposes only)
 
 Install
 -------
@@ -27,9 +34,16 @@ Usage
 Test
 ----
 
-* Provided some test cases. See test.py
+Provided some test cases. See test.py
+
+Pending Improvements
+--------------------
+
+* Indexes: faster access to the key columns of a record.
+* Request authentication.
+* Compare and synchronize the nodes.
 
 Author
 ------
 
-* Jaume Mila <jaume@westial.com>
+Jaume Mila <jaume@westial.com>
