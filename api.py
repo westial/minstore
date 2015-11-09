@@ -7,8 +7,10 @@ from wsgiref.simple_server import make_server
 from thread import start_new_thread
 
 import sys
+
 sys.path.append('..')
 
+from minstore.about import AboutHelper
 from minstore.exceptions import RecordExists
 from minstore.exceptions import RecordMissing
 from minstore.models import TextModel
@@ -242,86 +244,17 @@ class TextApi(Resource):
         self.__etag = '{action}-{uid}'.format(action=action, uid=uid)
 
 
-def funny_title():
-    return "           _           _                             \n"\
-        "          (_)         | |                            \n"\
-        " _ __ ___  _ _ __  ___| |_ ___  _ __ __ _  __ _  ___ \n"\
-        "| '_ ` _ \\| | '_ \\/ __| __/ _ \\| '__/ _` |/ _` |/ _ \\\n"\
-        "| | | | | | | | | \\__ \\ || (_) | | | (_| | (_| |  __/\n"\
-        "|_| |_| |_|_|_| |_|___/\\__\\___/|_|  \\__,_|\\__, |\\___|\n"\
-        "                                           __/ |     \n"\
-        "                                          |___/      \n\n"
-
-
-def license():
-    return "This program is free software: you can redistribute it and/or modify\n"\
-        "it under the terms of the GNU General Public License as published by\n"\
-        "the Free Software Foundation, either version 3 of the License, or\n"\
-        "(at your option) any later version.\n\n"\
-        "This program is distributed in the hope that it will be useful,\n"\
-        "but WITHOUT ANY WARRANTY; without even the implied warranty of\n"\
-        "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"\
-        "GNU General Public License for more details.\n\n"\
-        "You should have received a copy of the GNU General Public License\n"\
-        "along with this program.  If not, see <http://www.gnu.org/licenses/>.\n\n"
-
-
-def help_info():
-    """
-    Returns the help information about this module
-    """
-    msg = funny_title()
-    msg += "minstore {!s}. Storage engine API with mirroring support.\n".format(VERSION)
-    msg += "by Jaume Mila <jaume@westial.com>\n\n"\
-
-    msg += license()
-
-    msg += "Usage: python api.py SERVERS_LIST_PATH BASE_PATH [PORT]\n\n"
-    msg += "\tSERVERS_LIST_PATH: path to the file with the list of servers.\n"
-    msg += "\t\t\tThe servers.list file is required, although the file can\n"
-    msg += "\t\t\tbe an empty file. When the file is empty, it assumes that\n"
-    msg += "\t\t\tthere are no mirrors. List the mirror servers one by one\n"
-    msg += "\t\t\tseparated by line break. http/s and port are required.\n"
-    msg += "\t\t\tExample: http://127.0.0.1:8002\n"
-    msg += "\tBASE_PATH: path to the directory for the storage files.\n"
-    msg += "\tPORT: Port to use. Default port is {:d}.\n\n".format(DEFAULT_PORT)
-
-    msg += "Example: \n"
-    msg += "\t/usr/bin/python /opt/minstore/api.py \\\n"
-    msg += "\t/etc/minstore/servers.list /var/lib/minstore/storage 8001\n\n"
-
-    return msg
-
-
-def valid_base_path(path):
-    """
-    Checks if the base path is a valid path
-    :param path: str
-    :return: bool
-    """
-    return Helpers.path_exists(path)
-
-
-def valid_servers_list_path(path):
-    """
-    Checks if the servers list path is a valid path
-    :param path: str
-    :return: bool
-    """
-    return Helpers.path_exists(path)
-
-
 app = get_app(globals())
 
 if __name__ == '__main__':
     if len(sys.argv) < 3:
-        print help_info()
+        print AboutHelper.help_info(default_port=DEFAULT_PORT)
         exit(1)
 
     servers_list_path = sys.argv[1]
 
     if servers_list_path == '-h' or servers_list_path == '--help':
-        print help_info()
+        print AboutHelper.help_info(default_port=DEFAULT_PORT)
         exit(1)
 
     base_path = sys.argv[2]
@@ -332,12 +265,12 @@ if __name__ == '__main__':
     except IndexError:
         port = DEFAULT_PORT
 
-    if not valid_servers_list_path(servers_list_path):
+    if not Helpers.path_exists(servers_list_path):
         print "Error: provided SERVERS_LIST_PATH is not a valid path.\n"
         print "See --help for more information.\n"
         exit(1)
 
-    if not valid_base_path(base_path):
+    if not Helpers.path_exists(base_path):
         print "Error: provided BASE_PATH is not a valid path.\n"
         print "See --help for more information.\n"
         exit(1)

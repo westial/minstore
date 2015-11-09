@@ -10,6 +10,10 @@ sys.path.append('..')
 from minstore.helpers import Helpers
 
 URL = 'http://127.0.0.1:8001/text'
+
+# to use a mirror you need to install another instance in the same or other
+# node and configure the url below. Also you need to enable the test cases
+# related to mirror, removing the method name prefix underscore "_".
 URL_MIRROR = 'http://127.0.0.1:8002/text'
 
 
@@ -33,7 +37,7 @@ class TestCases(unittest2.TestCase):
     def new_uid(self):
         return str(uuid.uuid4())
 
-    def test_post_remote(self):
+    def _test_post_remote(self):
         uid = self.sample_fixed['uid']
         value = self.sample_fixed['value']
         response = Helpers.request_post(
@@ -42,7 +46,7 @@ class TestCases(unittest2.TestCase):
             data={'value': value})
         self.assertEqual(response.status_code, 200)
 
-    def test_put_remote(self):
+    def _test_put_remote(self):
         uid = self.sample_fixed['uid']
         value = 'I have changed the content on first and mirror site too.'
         response = Helpers.request_put(
@@ -51,7 +55,7 @@ class TestCases(unittest2.TestCase):
             data={'value': value})
         self.assertEqual(response.status_code, 200)
 
-    def test_delete_remote(self):
+    def _test_delete_remote(self):
         uid = self.sample_fixed['uid']
         response = Helpers.request_delete(
             url=URL_MIRROR,
