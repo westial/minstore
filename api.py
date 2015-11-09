@@ -32,10 +32,11 @@ class Spread(object):
     """Class spreading to mirrors
     """
 
-    def __init__(self, config_path):
+    def __init__(self, config_path, route=''):
         """Constructor
         """
         self._config_path = config_path
+        self._route = route
         self._servers = list()
 
         self._load_servers()
@@ -51,6 +52,7 @@ class Spread(object):
         :param record: dict
         """
         for url in self._servers:
+            url = '{!s}/{!s}'.format(url, self._route)
             self._async_put(url, record['uid'], record)
 
     def spread_delete(self, uid):
@@ -59,6 +61,7 @@ class Spread(object):
         :param uid: str
         """
         for url in self._servers:
+            url = '{!s}/{!s}'.format(url, self._route)
             self._async_delete(url, uid)
 
     @classmethod
@@ -230,7 +233,7 @@ class TextApi(Resource):
         global spread, servers_list_path
 
         if not spread:
-            spread = Spread(config_path=servers_list_path)
+            spread = Spread(config_path=servers_list_path, route='text')
 
         return spread
 
@@ -324,7 +327,7 @@ if __name__ == '__main__':
     base_path = sys.argv[2]
 
     try:
-        port = sys.argv[3]
+        port = int(sys.argv[3])
 
     except IndexError:
         port = DEFAULT_PORT

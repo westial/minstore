@@ -9,7 +9,8 @@ sys.path.append('..')
 
 from minstore.helpers import Helpers
 
-URL = 'http://localhost:8001/text'
+URL = 'http://127.0.0.1:8001/text'
+URL_MIRROR = 'http://127.0.0.1:8002/text'
 
 
 class TestCases(unittest2.TestCase):
@@ -32,6 +33,32 @@ class TestCases(unittest2.TestCase):
     def new_uid(self):
         return str(uuid.uuid4())
 
+    def test_post_remote(self):
+        uid = self.sample_fixed['uid']
+        value = self.sample_fixed['value']
+        response = Helpers.request_post(
+            url=URL_MIRROR,
+            params=[uid],
+            data={'value': value})
+        self.assertEqual(response.status_code, 200)
+
+    def test_put_remote(self):
+        uid = self.sample_fixed['uid']
+        value = 'I have changed the content on first and mirror site too.'
+        response = Helpers.request_put(
+            url=URL_MIRROR,
+            params=[uid],
+            data={'value': value})
+        self.assertEqual(response.status_code, 200)
+
+    def test_delete_remote(self):
+        uid = self.sample_fixed['uid']
+        response = Helpers.request_delete(
+            url=URL_MIRROR,
+            params=[uid])
+
+        self.assertEqual(response.status_code, 200)
+
     def test_put_mirroring(self):
         expected_len = 760
         content = '{"lang": "en", "timestamp": 1447037485.564405, "uid": "e528531e-13b2-42fb-a6e7-19fc62c1c499", "value": "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry\'s standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum. (Marked).", "check_sum": 3985211366849498588}'
@@ -52,7 +79,6 @@ class TestCases(unittest2.TestCase):
             params=['e528531e-13b2-42fb-a6e7-19fc62c1c499'])
 
         self.assertEqual(response.status_code, 200, 'Delete failed')
-
 
     def test_delete_mirroring(self):
         uid = self.new_uid()
