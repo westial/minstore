@@ -39,6 +39,7 @@ Provided some test cases. See test.py
 Pending Improvements
 --------------------
 
+* Installer script.
 * Indexes: faster access to the key columns of a record.
 * Request authentication.
 * Compare and synchronize the nodes.
