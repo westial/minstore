@@ -19,7 +19,9 @@ from minstore.processes import DetectLangProcess, MarkProcess
 from minstore.helpers import Helpers
 
 DEFAULT_PORT = 8001
-VERSION = '0.5.1'
+
+MIRROR_MODE = 'mirror'
+BRIDGE_MODE = 'bridge'
 
 # Globals
 
@@ -48,39 +50,65 @@ class Spread(object):
             content = config_file.read()
             self._servers = content.split()
 
+    def _read_bridge_enabled(self):
+        """
+        Checks the bridge mode in servers list.
+        :return: bool
+        """
+        if self._servers[0] == '*':
+            self._servers.pop(0)
+            return True
+
+        else:
+            return False
+
     def spread_put(self, record):
         """
         Spreads a put call in the background
         :param record: dict
         """
+        bridge_mode = self._read_bridge_enabled()
         for url in self._servers:
             url = '{!s}/{!s}'.format(url, self._route)
-            self._async_put(url, record['uid'], record)
+            self._async_put(url, record['uid'], record, bridge_mode=bridge_mode)
 
     def spread_delete(self, uid):
         """
         Spreads a delete call in the background
         :param uid: str
         """
+        bridge_mode = self._read_bridge_enabled()
         for url in self._servers:
             url = '{!s}/{!s}'.format(url, self._route)
-            self._async_delete(url, uid)
+            self._async_delete(url, uid, bridge_mode=bridge_mode)
 
     @classmethod
-    def _put_job(cls, url, params, data):
-        Helpers.request_put(url=url, params=params, data=data)
+    def _put_job(cls, url, dirs, params, data):
+        Helpers.request_put(url=url, dirs=dirs, data=data, params=params)
 
-    def _async_put(self, url, uid, record):
+    def _async_put(self, url, uid, record, bridge_mode):
         content = json.dumps(record)
-        start_new_thread(self._put_job,
-                         (url, [uid], {'value': content, 'mirroring': True}))
+
+        data = {'value': content}
+        params = {MIRROR_MODE: True}
+
+        if bridge_mode:
+            params[BRIDGE_MODE] = True
+
+        start_new_thread(self._put_job, (url, [uid], params, data))
 
     @classmethod
-    def _delete_job(cls, url, params, data):
-        Helpers.request_delete(url=url, params=params, data=data)
+    def _delete_job(cls, url, dirs, params):
+        Helpers.request_delete(url=url, dirs=dirs, params=params)
 
-    def _async_delete(self, url, uid):
-        start_new_thread(self._delete_job, (url, [uid], {'mirroring': True}))
+    def _async_delete(self, url, uid, bridge_mode):
+        params = {MIRROR_MODE: True}
+
+        if bridge_mode:
+            params[BRIDGE_MODE] = True
+
+        start_new_thread(self._delete_job, (url, [uid], params))
+
 
 # API
 
@@ -114,13 +142,7 @@ class TextApi(Resource):
         try:
             value = self.request.POST['value']
 
-            try:
-                copying = bool(self.request.POST['mirroring'])
-
-            except KeyError:
-                copying = False
-
-            if not copying:
+            if not self._is_mirror or self._is_bridge:
 
                 values = self._model.update(uid=uid, values={'value': value})
 
@@ -175,10 +197,7 @@ class TextApi(Resource):
 
             self._model.delete(uid=uid)
 
-            try:
-                bool(self.request.GET['mirroring'])
-
-            except KeyError:
+            if not self._is_mirror or self._is_bridge:
 
                 self._spread.spread_delete(uid=uid)
 
@@ -207,6 +226,22 @@ class TextApi(Resource):
         self._model.copy(record=record)
 
         return record
+
+    @property
+    def _is_mirror(self):
+        """
+        Checks if request is for mode mirror.
+        :return: bool
+        """
+        return MIRROR_MODE in self.request.GET
+
+    @property
+    def _is_bridge(self):
+        """
+        Checks if request is for mode bridge.
+        :return: bool
+        """
+        return BRIDGE_MODE in self.request.GET
 
     @property
     def _storage(self):

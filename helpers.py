@@ -49,25 +49,83 @@ class Helpers(object):
         os.remove(file_path)
 
     @classmethod
-    def request_post(cls, url, params, data, timeout=30):
-        url = '{!s}/{!s}'.format(url, '/'.join(params))
-        response = requests.post(url, data=data, timeout=timeout)
+    def __get_request_headers(cls):
+        """
+        Returns a dict of common request HTTP headers
+        :return: dict
+        """
+        headers = {'Accept': 'application/json'}
+
+        return headers
+
+    @classmethod
+    def request_post(cls, url, dirs, data, params=None, timeout=30):
+        """
+        Makes a post request.
+        :param url: destination url
+        :param dirs: route path items
+        :param data: post data
+        :param params: URI query params
+        :param timeout: timeout seconds for request
+        :return: HTTP response
+        """
+        url = '{!s}/{!s}'.format(url, '/'.join(dirs))
+        headers = cls.__get_request_headers()
+        response = requests.post(url,
+                                 data=data,
+                                 params=params,
+                                 timeout=timeout,
+                                 headers=headers)
         return response
 
     @classmethod
-    def request_put(cls, url, params, data, timeout=30):
-        url = '{!s}/{!s}'.format(url, '/'.join(params))
-        response = requests.put(url, data=data, timeout=timeout)
+    def request_put(cls, url, dirs, data, params=None, timeout=30):
+        """
+        Makes a put request.
+        :param url: destination url
+        :param dirs: route path items
+        :param data: post data
+        :param params: URI query params
+        :param timeout: timeout seconds for request
+        :return: HTTP response
+        """
+        url = '{!s}/{!s}'.format(url, '/'.join(dirs))
+        headers = cls.__get_request_headers()
+        response = requests.put(url,
+                                data=data,
+                                params=params,
+                                timeout=timeout,
+                                headers=headers)
         return response
 
     @classmethod
-    def request_get(cls, url, params, data=None, timeout=30):
-        url = '{!s}/{!s}'.format(url, '/'.join(params))
-        response = requests.get(url, params=data, timeout=timeout)
+    def request_get(cls, url, dirs, params=None, timeout=30):
+        """
+        Makes a get request.
+        :param url: destination url
+        :param dirs: route path items
+        :param params: URI query params
+        :param timeout: timeout seconds for request
+        :return: HTTP response
+        """
+        url = '{!s}/{!s}'.format(url, '/'.join(dirs))
+        headers = cls.__get_request_headers()
+        response = requests.get(url,
+                                params=params,
+                                timeout=timeout,
+                                headers=headers)
         return response
 
     @classmethod
-    def request_delete(cls, url, params, data=None, timeout=30):
-        url = '{!s}/{!s}'.format(url, '/'.join(params))
-        response = requests.delete(url, params=data, timeout=timeout)
+    def request_delete(cls, url, dirs, params=None, timeout=30):
+        """
+        Makes a delete request.
+        :param url: destination url
+        :param dirs: route path items
+        :param params: URI query params
+        :param timeout: timeout seconds for request
+        :return: HTTP response
+        """
+        url = '{!s}/{!s}'.format(url, '/'.join(dirs))
+        response = requests.delete(url, params=params, timeout=timeout)
         return response

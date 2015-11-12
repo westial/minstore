@@ -33,7 +33,7 @@ Usage
 
 * See the --help option for more information.
 
-###Client side
+###API Client
 
 Open a browser and go to the url with port. Example: http://127.0.0.1:8001/text.
 
@@ -42,6 +42,8 @@ You need a html form or a HTTP requester for operations as follows:
 * Inserts a new record: `POST /text/<uid> { uid: xxx, value: xxx }`
 * Updates an existing record: `PUT /text/<uid> { uid: xxx, value: xxx }`
 * Deletes an existing record: `DELETE /text/<uid> { uid: xxx, value: xxx }`
+
+
 
 ###Rules and restrictions
 
