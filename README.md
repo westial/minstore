@@ -1,12 +1,15 @@
 minstore
 ========
 
-This software provides a RESTful API to persist and retrieve key value pairs. 
+This software provides a RESTful API to process, persist, spread and retrieve 
+any kind of data sets. 
 
-It's based on a file storage engine that populates the new records to multiple nodes with the same application installed on.
+It's based on a file storage engine and after process and store the data, if
+ it's properly configured, spreads the new records to multiple nodes with the 
+ same application installed on.
 
-
-This application is a proof of concept and is totally not recommended using as is in a production environment.
+This application is a proof of concept and is totally not recommended using as 
+is in a production environment. There is no authentication yet.
 
 Requirements
 ------------
@@ -24,16 +27,61 @@ Install
 * Copy the files to a directory.
 * Configure the file servers.list.
 
+One or multiple instances
+-------------------------
+
+This application can be configured as an individual data storage service in only 
+one instance into one server.
+
+Also you can install multiple instances of this application within a range
+of servers and configure a strategy of communication among themselves.
+ 
+There are two strategies supported right now:
+
+* Mirroring: one server, the emitter, processes and stores a copy of the input 
+data and spreads the processed data to others. And the receivers only store the 
+data.
+* Bridge: when a receiver gets enabled the flag "bridge" by a request parameter,
+ this receiver will spreads the data to others. If the new receivers get the 
+ "bridge" flag enabled, they will spread to others, and so on.
+ 
+To enable the "Mirroring" strategy, the "servers.list" configuration file into
+the emitter must be a list of receiver servers URL, "http/s" and port included.
+For example, the list below is the configuration to spread the data processed
+to three servers:
+
+```
+http://127.0.0.1:8001
+http://127.0.0.1:8002
+http://192.168.2.56:8001
+```
+
+The "Bridging" strategy is complementary of the strategy above. To enable this
+last one, the first row in the list of the "servers.list" configuration file 
+must be an asterisk `*`. For example, the list below is the configuration to 
+spread the data processed to three servers. And if those three servers have 
+a "servers.list" configured, the spreading continues with the new configuration/s:
+
+```
+*
+http://127.0.0.1:8001
+http://127.0.0.1:8002
+http://192.168.2.56:8001
+```
+
 Usage
 -----
 
-###Starting a server
+###Server
+
+####Starting server
 
 `python api.py SERVERS_LIST_PATH BASE_PATH [PORT]`
 
-* See the --help option for more information.
+See the --help option for more information.
 
-###Client side
+
+###API Client
 
 Open a browser and go to the url with port. Example: http://127.0.0.1:8001/text.
 
@@ -42,6 +90,8 @@ You need a html form or a HTTP requester for operations as follows:
 * Inserts a new record: `POST /text/<uid> { uid: xxx, value: xxx }`
 * Updates an existing record: `PUT /text/<uid> { uid: xxx, value: xxx }`
 * Deletes an existing record: `DELETE /text/<uid> { uid: xxx, value: xxx }`
+
+
 
 ###Rules and restrictions
 

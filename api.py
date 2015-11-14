@@ -4,12 +4,13 @@
 import json
 from wsgiservice import *
 from wsgiref.simple_server import make_server
-from thread import start_new_thread
 
 import sys
+from minstore.strategies import Spread
 
 sys.path.append('..')
 
+from minstore.constants import *
 from minstore.about import AboutHelper
 from minstore.exceptions import RecordExists
 from minstore.exceptions import RecordMissing
@@ -18,9 +19,6 @@ from minstore.storage import FileStorage
 from minstore.processes import DetectLangProcess, MarkProcess
 from minstore.helpers import Helpers
 
-DEFAULT_PORT = 8001
-VERSION = '0.5.1'
-
 # Globals
 
 storage = None
@@ -28,61 +26,6 @@ model = None
 spread = None
 base_path = None
 servers_list_path = None
-
-
-class Spread(object):
-    """Class spreading to mirrors
-    """
-
-    def __init__(self, config_path, route=''):
-        """Constructor
-        """
-        self._config_path = config_path
-        self._route = route
-        self._servers = list()
-
-        self._load_servers()
-
-    def _load_servers(self):
-        with open(self._config_path, 'rb') as config_file:
-            content = config_file.read()
-            self._servers = content.split()
-
-    def spread_put(self, record):
-        """
-        Spreads a put call in the background
-        :param record: dict
-        """
-        for url in self._servers:
-            url = '{!s}/{!s}'.format(url, self._route)
-            self._async_put(url, record['uid'], record)
-
-    def spread_delete(self, uid):
-        """
-        Spreads a delete call in the background
-        :param uid: str
-        """
-        for url in self._servers:
-            url = '{!s}/{!s}'.format(url, self._route)
-            self._async_delete(url, uid)
-
-    @classmethod
-    def _put_job(cls, url, params, data):
-        Helpers.request_put(url=url, params=params, data=data)
-
-    def _async_put(self, url, uid, record):
-        content = json.dumps(record)
-        start_new_thread(self._put_job,
-                         (url, [uid], {'value': content, 'mirroring': True}))
-
-    @classmethod
-    def _delete_job(cls, url, params, data):
-        Helpers.request_delete(url=url, params=params, data=data)
-
-    def _async_delete(self, url, uid):
-        start_new_thread(self._delete_job, (url, [uid], {'mirroring': True}))
-
-# API
 
 
 @mount('/text/{uid}')
@@ -114,13 +57,7 @@ class TextApi(Resource):
         try:
             value = self.request.POST['value']
 
-            try:
-                copying = bool(self.request.POST['mirroring'])
-
-            except KeyError:
-                copying = False
-
-            if not copying:
+            if not self._is_mirror or self._is_bridge:
 
                 values = self._model.update(uid=uid, values={'value': value})
 
@@ -175,10 +112,7 @@ class TextApi(Resource):
 
             self._model.delete(uid=uid)
 
-            try:
-                bool(self.request.GET['mirroring'])
-
-            except KeyError:
+            if not self._is_mirror or self._is_bridge:
 
                 self._spread.spread_delete(uid=uid)
 
@@ -207,6 +141,22 @@ class TextApi(Resource):
         self._model.copy(record=record)
 
         return record
+
+    @property
+    def _is_mirror(self):
+        """
+        Checks if request is for mode mirror.
+        :return: bool
+        """
+        return MIRROR_MODE in self.request.GET
+
+    @property
+    def _is_bridge(self):
+        """
+        Checks if request is for mode bridge.
+        :return: bool
+        """
+        return BRIDGE_MODE in self.request.GET
 
     @property
     def _storage(self):
@@ -239,9 +189,12 @@ class TextApi(Resource):
 
         return spread
 
-    def __set_etag(self, action, uid):
-        """Sets the value for the etag"""
-        self.__etag = '{action}-{uid}'.format(action=action, uid=uid)
+    def __set_etag(self, uid, check_sum):
+        """Sets the value for the etag
+        :param uid: str
+        :param check_sum: double
+        """
+        self.__etag = '{uid}:{check_sum}'.format(uid=uid, check_sum=check_sum)
 
 
 app = get_app(globals())
