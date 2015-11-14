@@ -37,12 +37,6 @@ class TestCases(unittest2.TestCase):
         }
         self.threads = list()
 
-        self.start_server(servers_list_path='test-sandbox/simple/servers.list',
-                          base_path='test-sandbox/simple',
-                          port=8010)
-
-        time.sleep(10)
-
         pass
 
     def tearDown(self):
@@ -67,6 +61,32 @@ class TestCases(unittest2.TestCase):
                         args=[servers_list_path, base_path, port])
         thread.start()
         self.threads.append(thread)
+
+    def start_simple_server(self):
+        """Starts only one server, the common case.
+        """
+        self.start_server(servers_list_path='test-sandbox/simple/servers.list',
+                          base_path='test-sandbox/simple',
+                          port=8010)
+
+        time.sleep(10)
+
+    def start_triple_server(self):
+        """Starts three servers.
+        """
+        self.start_server(servers_list_path='test-sandbox/mirror/mirror1/servers.list',
+                          base_path='test-sandbox/mirror/mirror1',
+                          port=8001)
+
+        self.start_server(servers_list_path='test-sandbox/mirror/mirror2/servers.list',
+                          base_path='test-sandbox/mirror/mirror2',
+                          port=8002)
+
+        self.start_server(servers_list_path='test-sandbox/mirror/mirror3/servers.list',
+                          base_path='test-sandbox/mirror/mirror3',
+                          port=8003)
+
+        time.sleep(10)
 
     def async_api(self, servers_list_path, base_path, port):
         """
@@ -104,18 +124,13 @@ class TestCases(unittest2.TestCase):
         return record
 
     def test_mirror(self):
-        self.start_server(servers_list_path='test-sandbox/mirror/mirror1/servers.list',
-                          base_path='test-sandbox/mirror/mirror1',
-                          port=8001)
+        self.triple_server_common(route_key='mirror')
 
-        self.start_server(servers_list_path='test-sandbox/mirror/mirror2/servers.list',
-                          base_path='test-sandbox/mirror/mirror2',
-                          port=8002)
+    def test_bridge(self):
+        self.triple_server_common(route_key='bridge')
 
-        self.start_server(servers_list_path='test-sandbox/mirror/mirror3/servers.list',
-                          base_path='test-sandbox/mirror/mirror3',
-                          port=8003)
-        time.sleep(10)
+    def triple_server_common(self, route_key):
+        self.start_triple_server()
 
         uid = self.sample_fixed['uid']
         value = self.sample_fixed['value']
@@ -127,15 +142,23 @@ class TestCases(unittest2.TestCase):
 
         time.sleep(10)
 
-        record1 = self.get_record_by_path('test-sandbox/mirror/mirror1/' + uid)
-        record2 = self.get_record_by_path('test-sandbox/mirror/mirror2/' + uid)
-        record3 = self.get_record_by_path('test-sandbox/mirror/mirror3/' + uid)
+        record1 = self.get_record_by_path(
+            'test-sandbox/{key}/{key}1/{uid}'.format(key=route_key, uid=uid)
+        )
+        record2 = self.get_record_by_path(
+            'test-sandbox/{key}/{key}2/{uid}'.format(key=route_key, uid=uid)
+        )
+        record3 = self.get_record_by_path(
+            'test-sandbox/{key}/{key}3/{uid}'.format(key=route_key, uid=uid)
+        )
 
         self.assertEqual(record1, record2, 'POST: Record 1 and 2')
         self.assertEqual(record2, record3, 'POST: Record 2 and 3')
         self.assertEqual(record1['uid'], uid, 'POST: Unexpected uid')
 
-        value = 'I have changed the content on first and mirror site too.'
+        value = 'I have changed the content on first and {!s} site too.'\
+            .format(route_key)
+
         response = Helpers.request_put(
             url=URL1,
             dirs=['text', uid],
@@ -148,9 +171,15 @@ class TestCases(unittest2.TestCase):
 
         time.sleep(10)
 
-        record1 = self.get_record_by_path('test-sandbox/mirror/mirror1/' + uid)
-        record2 = self.get_record_by_path('test-sandbox/mirror/mirror2/' + uid)
-        record3 = self.get_record_by_path('test-sandbox/mirror/mirror3/' + uid)
+        record1 = self.get_record_by_path(
+            'test-sandbox/{key}/{key}1/{uid}'.format(key=route_key, uid=uid)
+        )
+        record2 = self.get_record_by_path(
+            'test-sandbox/{key}/{key}2/{uid}'.format(key=route_key, uid=uid)
+        )
+        record3 = self.get_record_by_path(
+            'test-sandbox/{key}/{key}3/{uid}'.format(key=route_key, uid=uid)
+        )
 
         self.assertEqual(record1, record2, 'PUT: Record 1 and 2')
         self.assertEqual(record2, record3, 'PUT: Record 2 and 3')
@@ -164,9 +193,15 @@ class TestCases(unittest2.TestCase):
 
         time.sleep(10)
 
-        exists1 = Helpers.path_exists('test-sandbox/mirror/mirror1/' + uid)
-        exists2 = Helpers.path_exists('test-sandbox/mirror/mirror2/' + uid)
-        exists3 = Helpers.path_exists('test-sandbox/mirror/mirror3/' + uid)
+        exists1 = Helpers.path_exists(
+            'test-sandbox/{key}/{key}1/{uid}'.format(key=route_key, uid=uid)
+        )
+        exists2 = Helpers.path_exists(
+            'test-sandbox/{key}/{key}2/{uid}'.format(key=route_key, uid=uid)
+        )
+        exists3 = Helpers.path_exists(
+            'test-sandbox/{key}/{key}3/{uid}'.format(key=route_key, uid=uid)
+        )
 
         self.assertFalse(exists1)
         self.assertFalse(exists2)
@@ -175,6 +210,7 @@ class TestCases(unittest2.TestCase):
         self.stop_all_apis()
 
     def test_get_not_exists_error(self):
+        self.start_simple_server()
         response = Helpers.request_get(
             url=URL,
             dirs=['text', self.new_uid()])
@@ -182,6 +218,7 @@ class TestCases(unittest2.TestCase):
         self.assertEqual(response.status_code, 404)
 
     def test_delete_not_exists_error(self):
+        self.start_simple_server()
         response = Helpers.request_delete(
             url=URL,
             dirs=['text', self.new_uid()])
@@ -189,6 +226,7 @@ class TestCases(unittest2.TestCase):
         self.assertEqual(response.status_code, 404)
 
     def test_post_exists_error(self):
+        self.start_simple_server()
         uid = self.new_uid()
         response = Helpers.request_post(
             url=URL,
@@ -211,6 +249,7 @@ class TestCases(unittest2.TestCase):
         self.assertEqual(response.status_code, 200, 'Delete failed')
 
     def test_put_not_exists_error(self):
+        self.start_simple_server()
         response = Helpers.request_put(
             url=URL,
             dirs=['text', self.new_uid()],
@@ -219,8 +258,9 @@ class TestCases(unittest2.TestCase):
         self.assertEqual(response.status_code, 404)
 
     def test_get_exists(self):
+        self.start_simple_server()
         uid = self.sample_fixed_len['uid']
-        expected_len = 180
+        expected_len = 145
         response = Helpers.request_post(
             url=URL,
             dirs=['text', uid],
@@ -232,8 +272,7 @@ class TestCases(unittest2.TestCase):
             dirs=['text', uid])
 
         self.assertEqual(response.status_code, 200, 'Get failed')
-        self.assertGreaterEqual(len(response.content), expected_len)
-        self.assertLessEqual(len(response.content), expected_len + 1)
+        self.assertEqual(len(response.content), expected_len)
 
         response = Helpers.request_delete(
             url=URL,
@@ -242,6 +281,7 @@ class TestCases(unittest2.TestCase):
         self.assertEqual(response.status_code, 200, 'Delete failed')
  
     def test_post_new(self):
+        self.start_simple_server()
         uid = self.new_uid()
         response = Helpers.request_post(
             url=URL,
@@ -256,6 +296,7 @@ class TestCases(unittest2.TestCase):
         self.assertEqual(response.status_code, 200, 'Delete failed')
 
     def test_delete_exists(self):
+        self.start_simple_server()
         uid = self.new_uid()
         response = Helpers.request_post(
             url=URL,
@@ -271,6 +312,7 @@ class TestCases(unittest2.TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_put_exists(self):
+        self.start_simple_server()
         first_content = self.sample_fixed['value']
         second_content = 'New content.'
 

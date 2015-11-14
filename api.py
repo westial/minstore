@@ -4,12 +4,13 @@
 import json
 from wsgiservice import *
 from wsgiref.simple_server import make_server
-from thread import start_new_thread
 
 import sys
+from minstore.strategies import Spread
 
 sys.path.append('..')
 
+from minstore.constants import *
 from minstore.about import AboutHelper
 from minstore.exceptions import RecordExists
 from minstore.exceptions import RecordMissing
@@ -18,11 +19,6 @@ from minstore.storage import FileStorage
 from minstore.processes import DetectLangProcess, MarkProcess
 from minstore.helpers import Helpers
 
-DEFAULT_PORT = 8001
-
-MIRROR_MODE = 'mirror'
-BRIDGE_MODE = 'bridge'
-
 # Globals
 
 storage = None
@@ -30,87 +26,6 @@ model = None
 spread = None
 base_path = None
 servers_list_path = None
-
-
-class Spread(object):
-    """Class spreading to mirrors
-    """
-
-    def __init__(self, config_path, route=''):
-        """Constructor
-        """
-        self._config_path = config_path
-        self._route = route
-        self._servers = list()
-
-        self._load_servers()
-
-    def _load_servers(self):
-        with open(self._config_path, 'rb') as config_file:
-            content = config_file.read()
-            self._servers = content.split()
-
-    def _read_bridge_enabled(self):
-        """
-        Checks the bridge mode in servers list.
-        :return: bool
-        """
-        if self._servers[0] == '*':
-            self._servers.pop(0)
-            return True
-
-        else:
-            return False
-
-    def spread_put(self, record):
-        """
-        Spreads a put call in the background
-        :param record: dict
-        """
-        bridge_mode = self._read_bridge_enabled()
-        for url in self._servers:
-            url = '{!s}/{!s}'.format(url, self._route)
-            self._async_put(url, record['uid'], record, bridge_mode=bridge_mode)
-
-    def spread_delete(self, uid):
-        """
-        Spreads a delete call in the background
-        :param uid: str
-        """
-        bridge_mode = self._read_bridge_enabled()
-        for url in self._servers:
-            url = '{!s}/{!s}'.format(url, self._route)
-            self._async_delete(url, uid, bridge_mode=bridge_mode)
-
-    @classmethod
-    def _put_job(cls, url, dirs, params, data):
-        Helpers.request_put(url=url, dirs=dirs, data=data, params=params)
-
-    def _async_put(self, url, uid, record, bridge_mode):
-        content = json.dumps(record)
-
-        data = {'value': content}
-        params = {MIRROR_MODE: True}
-
-        if bridge_mode:
-            params[BRIDGE_MODE] = True
-
-        start_new_thread(self._put_job, (url, [uid], params, data))
-
-    @classmethod
-    def _delete_job(cls, url, dirs, params):
-        Helpers.request_delete(url=url, dirs=dirs, params=params)
-
-    def _async_delete(self, url, uid, bridge_mode):
-        params = {MIRROR_MODE: True}
-
-        if bridge_mode:
-            params[BRIDGE_MODE] = True
-
-        start_new_thread(self._delete_job, (url, [uid], params))
-
-
-# API
 
 
 @mount('/text/{uid}')
@@ -274,9 +189,12 @@ class TextApi(Resource):
 
         return spread
 
-    def __set_etag(self, action, uid):
-        """Sets the value for the etag"""
-        self.__etag = '{action}-{uid}'.format(action=action, uid=uid)
+    def __set_etag(self, uid, check_sum):
+        """Sets the value for the etag
+        :param uid: str
+        :param check_sum: double
+        """
+        self.__etag = '{uid}:{check_sum}'.format(uid=uid, check_sum=check_sum)
 
 
 app = get_app(globals())
