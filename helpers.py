@@ -1,11 +1,27 @@
 #!/usr/bin/env python
 """Services and helpers
 """
+from binascii import hexlify
 import os
 import requests
 
 
 class Helpers(object):
+
+    @classmethod
+    def iterable_size(cls, target):
+        """
+        Returns the bytes length size of an iterable object
+        :param target: dict
+        :return: int
+        """
+        target_len = 0
+
+        for item in target:
+            target_len += len(hexlify(str(item)))
+            target_len += len(hexlify(str(target[item])))
+
+        return target_len
 
     @classmethod
     def sign(cls, hashable):

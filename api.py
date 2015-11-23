@@ -6,6 +6,7 @@ from wsgiservice import *
 from wsgiref.simple_server import make_server
 
 import sys
+from minstore.cache import MemoryCache
 from minstore.strategies import Spread
 
 sys.path.append('..')
@@ -23,7 +24,7 @@ from minstore.helpers import Helpers
 
 storage = None
 model = None
-spread = None
+strategy = None
 base_path = None
 servers_list_path = None
 
@@ -57,14 +58,16 @@ class TextApi(Resource):
         try:
             value = self.request.POST['value']
 
-            if not self._is_mirror or self._is_bridge:
+            if not self._is_mirror:
 
                 values = self._model.update(uid=uid, values={'value': value})
 
-                self._spread.spread_put(record=values)
-
             else:
                 values = self._copy_input(content=value)
+
+            if not self._is_mirror or self._is_bridge:
+
+                self._strategy.spread_put(record=values)
 
             return values
 
@@ -88,7 +91,7 @@ class TextApi(Resource):
             value = self.request.POST['value']
             values = self._model.insert(uid=uid, values={'value': value})
 
-            self._spread.spread_put(record=values)
+            self._strategy.spread_put(record=values)
 
             return values
 
@@ -114,7 +117,7 @@ class TextApi(Resource):
 
             if not self._is_mirror or self._is_bridge:
 
-                self._spread.spread_delete(uid=uid)
+                self._strategy.spread_delete(uid=uid)
 
         except KeyError, exc:
             raise_400(self, exc.message)
@@ -141,6 +144,14 @@ class TextApi(Resource):
         self._model.copy(record=record)
 
         return record
+
+    @property
+    def _is_cache(self):
+        """
+        Checks if request is for mode cache storing only.
+        :return: bool
+        """
+        return CACHE_MODE in self.request.GET
 
     @property
     def _is_mirror(self):
@@ -180,14 +191,16 @@ class TextApi(Resource):
         return model
 
     @property
-    def _spread(self):
-        """Gets the spread, it creates the spread engine if not exists"""
-        global spread, servers_list_path
+    def _strategy(self):
+        """Gets the persistence strategy, creates it if not exists.
+        """
+        global strategy, servers_list_path
 
-        if not spread:
-            spread = Spread(config_path=servers_list_path, route='text')
+        if not strategy:
+            strategy = Spread(config_path=servers_list_path, route='text')
+            strategy.cache = MemoryCache(size_limit=MAX_CACHE_SIZE_B)
 
-        return spread
+        return strategy
 
     def __set_etag(self, uid, check_sum):
         """Sets the value for the etag

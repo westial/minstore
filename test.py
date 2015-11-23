@@ -9,6 +9,9 @@ import uuid
 from threading import Thread
 
 import sys
+from minstore.cache import MemoryCache
+from minstore.exceptions import RecordExists, RecordMissing
+
 sys.path.append('..')
 
 from minstore.helpers import Helpers
@@ -42,86 +45,72 @@ class TestCases(unittest2.TestCase):
     def tearDown(self):
         self.stop_all_apis()
 
-    def stop_all_apis(self):
+    # test cases
+
+    def test_cache(self):
+        """Unit testing cases for MemoryCache class
         """
-        Stops all wsgiservice apis and threads
-        """
-        os.system('pkill -f "python api.py"')
+        content = '012346789'
+        std_value = 1000
 
-        while len(self.threads):
-            thread = self.threads.pop()
-            thread.join()
+        record1 = {
+            'uid': '1',
+            'value': content,
+            'size': std_value,
+            'check_sum': '123456789012345678901'
+        }
 
-    def start_server(self, servers_list_path, base_path, port):
-        """
-        Starts an api server into a separated thread
-        :param port: int
-        """
-        thread = Thread(target=self.async_api,
-                        args=[servers_list_path, base_path, port])
-        thread.start()
-        self.threads.append(thread)
+        cache = MemoryCache(size_limit=std_value * 4)
 
-    def start_simple_server(self):
-        """Starts only one server, the common case.
-        """
-        self.start_server(servers_list_path='test-sandbox/simple/servers.list',
-                          base_path='test-sandbox/simple',
-                          port=8010)
+        self.assertTrue(cache.put(record=record1))
 
-        time.sleep(10)
+        record2 = {
+            'uid': '2',
+            'value': content,
+            'size': std_value,
+            'check_sum': '123456789012345678902'
+        }
+        self.assertTrue(cache.put(record=record2))
 
-    def start_triple_server(self):
-        """Starts three servers.
-        """
-        self.start_server(servers_list_path='test-sandbox/mirror/mirror1/servers.list',
-                          base_path='test-sandbox/mirror/mirror1',
-                          port=8001)
+        record3 = {
+            'uid': '3',
+            'value': content,
+            'size': std_value,
+            'check_sum': '123456789012345678903'
+        }
+        self.assertTrue(cache.put(record=record3))
 
-        self.start_server(servers_list_path='test-sandbox/mirror/mirror2/servers.list',
-                          base_path='test-sandbox/mirror/mirror2',
-                          port=8002)
+        record4 = {
+            'uid': '4',
+            'value': content,
+            'size': std_value,
+            'check_sum': '12345678901234567894'
+        }
+        self.assertTrue(cache.put(record=record4))
 
-        self.start_server(servers_list_path='test-sandbox/mirror/mirror3/servers.list',
-                          base_path='test-sandbox/mirror/mirror3',
-                          port=8003)
+        # check all records are in cache
 
-        time.sleep(10)
+        self.assertEqual(cache.get(uid='1'), record1)
+        self.assertEqual(cache.get(uid='2'), record2)
+        self.assertEqual(cache.get(uid='3'), record3)
 
-    def async_api(self, servers_list_path, base_path, port):
-        """
-        Asynchronous task starting the wsgiservice.
-        :param servers_list_path: str
-        :param base_path: str
-        :param port: int
-        """
-        os.system("python api.py {!s} {!s} {:d}".format(servers_list_path,
-                                                        base_path,
-                                                        port))
+        # check record exists
 
-    def new_uid(self):
-        return str(uuid.uuid4())
+        self.assertFalse(cache.put(record=record3))
 
-    def get_record_by_path(self, file_path):
-        """
-        Retrieves a record from a file
-        :param file_path: str
-        :return: dict
-        """
-        with open(file_path, 'rb+') as record_file:
-            content = record_file.read()
+        # check freeing first inserted when size is over limit
 
-        record = json.loads(content)
-        return record
+        self.assertEqual(cache.get(uid='4'), record4)
 
-    def get_record_by_response_content(self, content):
-        """
-        Retrieves a record for a given request response
-        :param content: str
-        :return: dict
-        """
-        record = json.loads(content)
-        return record
+        record5 = {
+            'uid': '5',
+            'value': content,
+            'size': std_value,
+            'check_sum': '12345678901234567895'
+        }
+        self.assertTrue(cache.put(record=record5))
+
+        self.assertRaises(RecordMissing, cache.get, uid='1')
 
     def test_mirror(self):
         self.triple_server_common(route_key='mirror')
@@ -130,7 +119,7 @@ class TestCases(unittest2.TestCase):
         self.triple_server_common(route_key='bridge')
 
     def triple_server_common(self, route_key):
-        self.start_triple_server()
+        self.start_triple_server(key=route_key)
 
         uid = self.sample_fixed['uid']
         value = self.sample_fixed['value']
@@ -260,7 +249,7 @@ class TestCases(unittest2.TestCase):
     def test_get_exists(self):
         self.start_simple_server()
         uid = self.sample_fixed_len['uid']
-        expected_len = 145
+        expected_len = 158
         response = Helpers.request_post(
             url=URL,
             dirs=['text', uid],
@@ -345,6 +334,89 @@ class TestCases(unittest2.TestCase):
             dirs=['text', self.sample_fixed['uid']])
 
         self.assertEqual(response.status_code, 200, 'Delete failed')
+
+    # test helpers
+
+    def stop_all_apis(self):
+        """
+        Stops all wsgiservice apis and threads
+        """
+        os.system('pkill -f "python api.py"')
+
+        while len(self.threads):
+            thread = self.threads.pop()
+            thread.join()
+
+    def start_server(self, servers_list_path, base_path, port):
+        """
+        Starts an api server into a separated thread
+        :param port: int
+        """
+        thread = Thread(target=self.async_api,
+                        args=[servers_list_path, base_path, port])
+        thread.start()
+        self.threads.append(thread)
+
+    def start_simple_server(self):
+        """Starts only one server, the common case.
+        """
+        self.start_server(servers_list_path='test-sandbox/simple/servers.list',
+                          base_path='test-sandbox/simple',
+                          port=8010)
+
+        time.sleep(10)
+
+    def start_triple_server(self, key):
+        """Starts three servers.
+        """
+        self.start_server(servers_list_path='test-sandbox/{key}/{key}1/servers.list'.format(key=key),
+                          base_path='test-sandbox/{key}/{key}1'.format(key=key),
+                          port=8001)
+
+        self.start_server(servers_list_path='test-sandbox/{key}/{key}2/servers.list'.format(key=key),
+                          base_path='test-sandbox/{key}/{key}2'.format(key=key),
+                          port=8002)
+
+        self.start_server(servers_list_path='test-sandbox/{key}/{key}3/servers.list'.format(key=key),
+                          base_path='test-sandbox/{key}/{key}3'.format(key=key),
+                          port=8003)
+
+        time.sleep(10)
+
+    def async_api(self, servers_list_path, base_path, port):
+        """
+        Asynchronous task starting the wsgiservice.
+        :param servers_list_path: str
+        :param base_path: str
+        :param port: int
+        """
+        os.system("python api.py {!s} {!s} {:d}".format(servers_list_path,
+                                                        base_path,
+                                                        port))
+
+    def new_uid(self):
+        return str(uuid.uuid4())
+
+    def get_record_by_path(self, file_path):
+        """
+        Retrieves a record from a file
+        :param file_path: str
+        :return: dict
+        """
+        with open(file_path, 'rb+') as record_file:
+            content = record_file.read()
+
+        record = json.loads(content)
+        return record
+
+    def get_record_by_response_content(self, content):
+        """
+        Retrieves a record for a given request response
+        :param content: str
+        :return: dict
+        """
+        record = json.loads(content)
+        return record
 
  
 if __name__ == '__main__':
