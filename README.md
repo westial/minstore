@@ -11,21 +11,25 @@ It's based on a file storage engine and after process and store the data, if
 This application is a proof of concept and is totally not recommended using as 
 is in a production environment. There is no authentication yet.
 
+
 Requirements
 ------------
 
 * Python 2.7+
+
 
 ### Python packages
 
 * wsgiservice
 * unittest2 (for testing purposes only)
 
+
 Install
 -------
 
 * Copy the files to a directory.
 * Configure the file servers.list.
+
 
 One or multiple instances
 -------------------------
@@ -59,8 +63,9 @@ http://192.168.2.56:8001
 The "Bridging" strategy is complementary of the strategy above. To enable this
 last one, the first row in the list of the "servers.list" configuration file 
 must be an asterisk `*`. For example, the list below is the configuration to 
-spread the data processed to three servers. And if those three servers have 
-a "servers.list" configured, the spreading continues with the new configuration/s:
+spread the data processed to three servers. If those three servers have 
+a configured "servers.list" file, the spreading continues with the new 
+configuration/s:
 
 ```
 *
@@ -68,6 +73,7 @@ http://127.0.0.1:8001
 http://127.0.0.1:8002
 http://192.168.2.56:8001
 ```
+
 
 Usage
 -----
@@ -92,7 +98,6 @@ You need a html form or a HTTP requester for operations as follows:
 * Deletes an existing record: `DELETE /text/<uid> { uid: xxx, value: xxx }`
 
 
-
 ###Rules and restrictions
 
 * POST and PUT methods returns the full record saved into storage.
@@ -100,11 +105,13 @@ You need a html form or a HTTP requester for operations as follows:
 * A POST request to an existing record returns a 400 error code.
 * A PUT, DELETE or GET request to an existing record returns a 404 error code.
 
+
 Processes
 ---------
 
 There are 2 processes transforming the record before to persist. Appending new
 processes is very easy.
+
 
 Storage Engine
 --------------
@@ -112,18 +119,22 @@ Storage Engine
 The FileStorage engine implements the Storage super class. It allows to inject 
 another storage engine to change how and where the information is persisted.
 
+
 Test
 ----
 
 Provided some test cases. See test.py
 
+
 Pending Improvements
 --------------------
 
 * Installer script.
+* Cache mode: endpoint receiving this option does store in memory only.
 * Indexes: faster access to the key columns of a record.
 * Request authentication.
 * Compare and synchronize the nodes.
+
 
 Author
 ------

@@ -194,4 +194,6 @@ class TextModel(Model):
         for process in processes:
             process.process(record)
 
+        record['size'] = Helpers.iterable_size(target=record)
+
         return record
