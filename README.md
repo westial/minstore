@@ -78,6 +78,8 @@ http://127.0.0.1:8002
 http://192.168.2.56:8001
 ```
 
+To use "Cache" strategy, set the URI query parameter "cache" to "1" on the GET, PUT and POST requests. Example of request URL with enabled cache, valid for GET, PUT and POST: `http://myapi.com:8000/text/?cache=1`.
+
 
 Usage
 -----
