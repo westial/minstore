@@ -25,3 +25,11 @@ class OverCacheSize(Exception):
     def __init__(self, message='Record exceeds cache space'):
 
         super(Exception, self).__init__(message)
+
+
+class ServerMissing(Exception):
+    """Exception raised when a required server is missing"""
+
+    def __init__(self, message='Server is missing'):
+
+        super(Exception, self).__init__(message)

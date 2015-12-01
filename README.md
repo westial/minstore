@@ -7,9 +7,8 @@ any kind of data sets.
 It's based on a file storage engine and after process and store the data, if
  it's properly configured, spreads the new records to multiple nodes with the 
  same application installed on.
-
-This application is a proof of concept and is totally not recommended using as 
-is in a production environment. There is no authentication yet.
+ 
+Authentication is still not supported.
 
 
 Requirements
@@ -40,14 +39,19 @@ one instance into one server.
 Also you can install multiple instances of this application within a range
 of servers and configure a strategy of communication among themselves.
  
-There are two strategies supported right now:
+There are three strategies supported:
 
-* Mirroring: one server, the emitter, processes and stores a copy of the input 
+* **Mirroring**: one server, the emitter, processes and stores a copy of the input 
 data and spreads the processed data to others. And the receivers only store the 
 data.
-* Bridge: when a receiver gets enabled the flag "bridge" by a request parameter,
+* **Bridge**: when a receiver gets enabled the flag "bridge" by a request parameter,
  this receiver will spreads the data to others. If the new receivers get the 
  "bridge" flag enabled, they will spread to others, and so on.
+* **Cache**: two nodes or more are required, the first endpoint and at least one
+ dependant server more. First endpoint bounces the request to the seconds one
+ and waits for the response. Saves the valid response into the local cache and
+ returns the result to the client. When the client requests a record get, if
+ the record is into the cache, the record is provided to the client faster. 
  
 To enable the "Mirroring" strategy, the "servers.list" configuration file into
 the emitter must be a list of receiver servers URL, "http/s" and port included.
@@ -104,6 +108,7 @@ You need a html form or a HTTP requester for operations as follows:
 * GET method returns the full record found into storage.
 * A POST request to an existing record returns a 400 error code.
 * A PUT, DELETE or GET request to an existing record returns a 404 error code.
+* GET and DELETE look for the record within all nodes before raise a 404 error.
 
 
 Processes
@@ -130,7 +135,6 @@ Pending Improvements
 --------------------
 
 * Installer script.
-* Cache mode: endpoint receiving this option does store in memory only.
 * Indexes: faster access to the key columns of a record.
 * Request authentication.
 * Compare and synchronize the nodes.

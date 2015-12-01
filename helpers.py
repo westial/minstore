@@ -2,6 +2,7 @@
 """Services and helpers
 """
 from binascii import hexlify
+import json
 import os
 import requests
 
@@ -145,3 +146,26 @@ class Helpers(object):
         url = '{!s}/{!s}'.format(url, '/'.join(dirs))
         response = requests.delete(url, params=params, timeout=timeout)
         return response
+
+
+class RecordHelper(object):
+    """Helper functions to manage records
+    """
+
+    @classmethod
+    def str2record(cls, content):
+        """
+        Given a json string returns a record dictionary or None on error found.
+        :param content: str
+        :return: dict|None
+        """
+        try:
+            record = json.loads(content)
+
+        except TypeError:
+            return None
+
+        except ValueError:
+            return None
+
+        return record
