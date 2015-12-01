@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """API's for all domain cores
 """
-import json
 from wsgiservice import *
 from wsgiref.simple_server import make_server
 
@@ -18,7 +17,7 @@ from minstore.exceptions import RecordMissing
 from minstore.models import TextModel
 from minstore.storage import FileStorage
 from minstore.processes import DetectLangProcess, MarkProcess
-from minstore.helpers import Helpers
+from minstore.helpers import Helpers, RecordHelper
 
 # Globals
 
@@ -37,16 +36,32 @@ class TextApi(Resource):
 
     def GET(self, uid):
         """Returns a text by its uid.
+        First checks cache if enabled. Second checks local storage and third
+        looks for it into dependant servers.
+
         :param uid: str
+        :return dict
         """
         try:
-            values = self._model.get(uid=uid)
-            self.__set_etag(uid, values['check_sum'])
+            values = None
 
+            if self._strategy.cache:
+                values = self._strategy.cache.get(uid=uid)
+
+            if not values:
+                values = self._model.get(uid=uid)
+
+            self.__set_etag(uid, values['check_sum'])
             return values
 
         except RecordMissing:
-            raise_404(self)
+            try:
+                values = self._strategy.bounce_get(uid=uid)
+
+                return values
+
+            except RecordMissing:
+                raise_404(self)
 
         except Exception, exc:
             raise_500(self, exc.message)
@@ -58,16 +73,20 @@ class TextApi(Resource):
         try:
             value = self.request.POST['value']
 
-            if not self._is_mirror:
-
-                values = self._model.update(uid=uid, values={'value': value})
+            if self._is_cache:
+                values = self._strategy.bounce_put(uid=uid, value=value)
 
             else:
-                values = self._copy_input(content=value)
 
-            if not self._is_mirror or self._is_bridge:
+                if not self._is_mirror:
+                    values = self._model.update(uid=uid, values={'value': value})
 
-                self._strategy.spread_put(record=values)
+                else:
+                    values = self._copy_input(content=value)
+
+                if values and (not self._is_mirror or self._is_bridge):
+
+                    self._strategy.spread_put(record=values)
 
             return values
 
@@ -89,9 +108,13 @@ class TextApi(Resource):
         """
         try:
             value = self.request.POST['value']
-            values = self._model.insert(uid=uid, values={'value': value})
 
-            self._strategy.spread_put(record=values)
+            if self._is_cache:
+                values = self._strategy.bounce_post(uid=uid, value=value)
+
+            else:
+                values = self._model.insert(uid=uid, values={'value': value})
+                self._strategy.spread_put(record=values)
 
             return values
 
@@ -112,7 +135,6 @@ class TextApi(Resource):
         :param uid: str
         """
         try:
-
             self._model.delete(uid=uid)
 
             if not self._is_mirror or self._is_bridge:
@@ -126,7 +148,11 @@ class TextApi(Resource):
             raise_400(self, exc.message)
 
         except RecordMissing:
-            raise_404(self)
+            try:
+                self._strategy.bounce_delete(uid=uid)
+
+            except RecordMissing:
+                raise_404(self)
 
         except Exception, exc:
             raise_500(self, exc.message)
@@ -140,7 +166,11 @@ class TextApi(Resource):
         :param content: str
         :return: dict
         """
-        record = json.loads(content)
+        record = RecordHelper.str2record(content=content)
+
+        if not record:
+            return None
+
         self._model.copy(record=record)
 
         return record
@@ -198,7 +228,9 @@ class TextApi(Resource):
 
         if not strategy:
             strategy = Spread(config_path=servers_list_path, route='text')
-            strategy.cache = MemoryCache(size_limit=MAX_CACHE_SIZE_B)
+
+            if self._is_cache:
+                strategy.cache = MemoryCache(size_limit=MAX_CACHE_SIZE_LEN)
 
         return strategy
 

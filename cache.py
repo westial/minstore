@@ -35,6 +35,12 @@ class Cache(object):
         pass
 
     @abstractmethod
+    def forget(self, **params):
+        """Deletes a cache record
+        """
+        pass
+
+    @abstractmethod
     def is_enabled(self):
         """Checks enabled
         """
@@ -116,6 +122,12 @@ class MemoryCache(Cache):
 
         return self.__get_cache(uid=params['uid'])
 
+    def forget(self, **params):
+        if not self.is_enabled():
+            return None
+
+        return self.__forget_cache(uid=params['uid'])
+
     def __append_cache(self, record):
         """Appends a new record to the thread safe cache dictionary.
         :param record: dict
@@ -148,6 +160,22 @@ class MemoryCache(Cache):
             self._buffer_lock.release()
 
         return record
+
+    def __forget_cache(self, uid):
+        """Deletes a record of the thread safe cache dictionary by uid.
+        :param uid: str
+        :raise RecordMissing
+        """
+        self._buffer_lock.acquire()
+
+        try:
+            del self._buffer[uid]
+
+        except KeyError:
+            raise RecordMissing()
+
+        finally:
+            self._buffer_lock.release()
 
     def _exists(self, record):
         try:

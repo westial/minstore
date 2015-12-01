@@ -8,7 +8,7 @@ import json
 import sys
 sys.path.append('..')
 
-from minstore.helpers import Helpers
+from minstore.helpers import Helpers, RecordHelper
 
 
 class Storage(object):
@@ -92,7 +92,7 @@ class FileStorage(Storage):
         :return dict
         """
         content = self._file.read()
-        record = json.loads(content)
+        record = RecordHelper.str2record(content=content)
 
         return record
 

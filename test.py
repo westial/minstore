@@ -10,11 +10,12 @@ from threading import Thread
 
 import sys
 from minstore.cache import MemoryCache
+from minstore.constants import CACHE_MODE
 from minstore.exceptions import RecordExists, RecordMissing
 
 sys.path.append('..')
 
-from minstore.helpers import Helpers
+from minstore.helpers import Helpers, RecordHelper
 
 URL = 'http://127.0.0.1:8010'
 
@@ -47,7 +48,7 @@ class TestCases(unittest2.TestCase):
 
     # test cases
 
-    def test_cache(self):
+    def test_memory_cache_class(self):
         """Unit testing cases for MemoryCache class
         """
         content = '012346789'
@@ -112,11 +113,179 @@ class TestCases(unittest2.TestCase):
 
         self.assertRaises(RecordMissing, cache.get, uid='1')
 
+    def test_cache(self):
+        route_key = 'cache'
+        self.start_triple_server(key=route_key)
+
+        uid = self.sample_fixed['uid']
+        value = self.sample_fixed['value']
+        response = Helpers.request_post(
+            url=URL1,
+            dirs=['text', uid],
+            data={'value': value},
+            params={CACHE_MODE: int(True)},
+        )
+        self.assertEqual(response.status_code, 200)
+
+        time.sleep(10)
+
+        self.assertRaises(IOError,
+                          self.get_record_by_path,
+                          'test-sandbox/{key}/{key}1/{uid}'.format(
+                              key=route_key,
+                              uid=uid
+                          ))
+
+        record2 = self.get_record_by_path(
+            'test-sandbox/{key}/{key}2/{uid}'.format(key=route_key, uid=uid)
+        )
+        record3 = self.get_record_by_path(
+            'test-sandbox/{key}/{key}3/{uid}'.format(key=route_key, uid=uid)
+        )
+
+        self.assertNotEqual(record2, record3, 'POST: Record 2 and 3 are equal')
+        self.assertEqual(record2['value'], record3['value'],
+                         'POST: Record 2 and 3 different values')
+        self.assertEqual(record2['uid'], uid, 'POST: Unexpected uid')
+
+        value = 'I have changed the content on first and {!s} site too.'\
+            .format(route_key)
+
+        response = Helpers.request_put(
+            url=URL1,
+            dirs=['text', uid],
+            data={'value': value},
+            params={CACHE_MODE: int(True)},
+        )
+        self.assertEqual(response.status_code, 200)
+
+        response_record = self.get_record_by_response_content(response.content)
+
+        self.assertEqual(response_record['value'][0:20], value[0:20])
+
+        time.sleep(10)
+
+        self.assertRaises(IOError,
+                          self.get_record_by_path,
+                          'test-sandbox/{key}/{key}1/{uid}'.format(
+                              key=route_key,
+                              uid=uid
+                          ))
+
+        record2 = self.get_record_by_path(
+            'test-sandbox/{key}/{key}2/{uid}'.format(key=route_key, uid=uid)
+        )
+        record3 = self.get_record_by_path(
+            'test-sandbox/{key}/{key}3/{uid}'.format(key=route_key, uid=uid)
+        )
+
+        self.assertNotEqual(record2, record3, 'PUT: Record 2 and 3 are equal')
+        self.assertEqual(record2['value'], record3['value'],
+                         'PUT: Record 2 and 3 different values')
+        self.assertEqual(record2['uid'], uid, 'PUT: Unexpected uid')
+
+        response = Helpers.request_delete(
+            url=URL1,
+            dirs=['text', uid],
+            params={CACHE_MODE: int(True)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        time.sleep(10)
+
+        exists1 = Helpers.path_exists(
+            'test-sandbox/{key}/{key}1/{uid}'.format(key=route_key, uid=uid)
+        )
+        exists2 = Helpers.path_exists(
+            'test-sandbox/{key}/{key}2/{uid}'.format(key=route_key, uid=uid)
+        )
+        exists3 = Helpers.path_exists(
+            'test-sandbox/{key}/{key}3/{uid}'.format(key=route_key, uid=uid)
+        )
+
+        self.assertFalse(exists1)
+        self.assertFalse(exists2)
+        self.assertFalse(exists3)
+
+        self.stop_all_apis()
+
     def test_mirror(self):
         self.triple_server_common(route_key='mirror')
 
     def test_bridge(self):
         self.triple_server_common(route_key='bridge')
+
+    def test_inequable_mirror(self):
+        self.triple_server_inequable(route_key='mirror')
+
+    def triple_server_inequable(self, route_key):
+        self.start_triple_server(key=route_key)
+
+        uid = self.sample_fixed['uid']
+        value = self.sample_fixed['value']
+        response = Helpers.request_post(
+            url=URL1,
+            dirs=['text', uid],
+            data={'value': value})
+        self.assertEqual(response.status_code, 200)
+
+        time.sleep(10)
+
+        Helpers.delete_file(
+            file_path='test-sandbox/{key}/{key}1/{uid}'.format(key=route_key,
+                                                               uid=uid)
+        )
+
+        exists1 = Helpers.path_exists(
+            'test-sandbox/{key}/{key}1/{uid}'.format(key=route_key, uid=uid)
+        )
+
+        self.assertFalse(exists1, 'Record 1 still exists')
+
+        record2 = self.get_record_by_path(
+            'test-sandbox/{key}/{key}2/{uid}'.format(key=route_key, uid=uid)
+        )
+        record3 = self.get_record_by_path(
+            'test-sandbox/{key}/{key}3/{uid}'.format(key=route_key, uid=uid)
+        )
+
+        self.assertEqual(record2, record3, 'POST: Record 2 and 3')
+        self.assertEqual(record2['uid'], uid, 'POST: Unexpected uid')
+
+        response = Helpers.request_get(
+            url=URL1,
+            dirs=['text', uid])
+
+        self.assertEqual(response.status_code, 200, 'Get failed')
+
+        record1 = RecordHelper.str2record(content=response.content)
+
+        self.assertEqual(record1, record2, 'POST: Record 1 and 2')
+
+        response = Helpers.request_delete(
+            url=URL1,
+            dirs=['text', uid])
+
+        self.assertEqual(response.status_code, 200)
+
+        time.sleep(10)
+
+        exists1 = Helpers.path_exists(
+            'test-sandbox/{key}/{key}1/{uid}'.format(key=route_key, uid=uid)
+        )
+        exists2 = Helpers.path_exists(
+            'test-sandbox/{key}/{key}2/{uid}'.format(key=route_key, uid=uid)
+        )
+        exists3 = Helpers.path_exists(
+            'test-sandbox/{key}/{key}3/{uid}'.format(key=route_key, uid=uid)
+        )
+
+        self.assertFalse(exists1)
+        self.assertFalse(exists2)
+        self.assertFalse(exists3)
+
+        self.stop_all_apis()
 
     def triple_server_common(self, route_key):
         self.start_triple_server(key=route_key)
