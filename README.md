@@ -4,9 +4,9 @@ minstore
 This software provides a RESTful API to process, persist, spread and retrieve 
 any kind of data sets. 
 
-It's based on a file storage engine and after process and store the data, if
- it's properly configured, spreads the new records to multiple nodes with the 
- same application installed on.
+It's based on a file storage engine and after process and store the data, 
+properly configured, spreads the new records to multiple nodes with the 
+same application installed on.
  
 Authentication is still not supported.
 
